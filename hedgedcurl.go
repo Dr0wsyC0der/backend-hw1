@@ -5,20 +5,10 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"time"
 )
 
-func readBody(r *http.Response) ([]byte, error) {
-	defer r.Body.Close()
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		return nil, err
-	}
-	return bodyBytes, nil
-}
 
 func main() {
 	timeout := flag.Int("t", 15, "request timeout in seconds")
@@ -48,11 +38,11 @@ func main() {
 		select {
 		case result := <-results:
 			if result.Err != nil {
+				if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+					os.Exit(228)
+				}
 				errorsCount++
 				if errorsCount == len(urls) {
-					if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-						os.Exit(228)
-					}
 					fmt.Println("All requests failed")
 					os.Exit(1)
 				}
@@ -65,12 +55,7 @@ func main() {
 					fmt.Printf("%s: %s\n", key, value)
 				}
 			}
-			body, err := readBody(result.Resp)
-			if err != nil {
-				fmt.Printf("Error reading response body: %v\n", err)
-				os.Exit(1)
-			}
-			fmt.Printf("Response body: %s\n", string(body))
+			fmt.Printf("Response body: %s\n", string(result.Body))
 			cancel()
 			return
 
